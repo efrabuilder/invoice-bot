@@ -85,7 +85,30 @@ html.theme-inverted .theme-toggle-btn .icon-moon{display:block;}
 html.theme-inverted{filter:invert(1) hue-rotate(180deg);}
 html.theme-inverted img,html.theme-inverted video,html.theme-inverted iframe,html.theme-inverted svg image,html.theme-inverted .theme-toggle-btn{filter:invert(1) hue-rotate(180deg);}
 
-  
+  <style>
+  .lang-toggle { 
+    display: flex; 
+    gap: 4px; 
+    background: rgba(255,255,255,0.06); 
+    border-radius: 20px; 
+    padding: 3px; 
+  }
+  .lang-btn {
+    border: none;
+    background: transparent;
+    color: #888;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lang-btn.active {
+    background: var(--c1); /* Naranja */
+    color: #fff;
+  }
+</style>
 </style>
 </head>
 <body>
@@ -146,16 +169,15 @@ html.theme-inverted img,html.theme-inverted video,html.theme-inverted iframe,htm
     Built by Efraín Sebastián · <a href="https://github.com/efrabuilder/invoice-bot" target="_blank">source on GitHub</a>
   </footer>
 
-  <nav> .lang-toggle { display:flex; gap:4px; background:rgba(255,255,255,0.06); border-radius:20px; padding:3px; }<div style="display:flex;align-items:center;gap:10px;">
-    <div class="lang-toggle">
-      <button class="lang-btn" id="btn-es" onclick="setLang('es')">ES</button>
-      <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
-    </div>
-    <button class="theme-toggle-btn" id="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema claro/oscuro">
-      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-    </button>
+<nav style="display:flex; align-items:center; gap:10px; justify-content: flex-end; margin-bottom: 20px;">
+  <div class="lang-toggle">
+    <button class="lang-btn" id="btn-es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
   </div>
+  <button class="theme-toggle-btn" id="theme-toggle" title="Cambiar tema">
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
 </nav>
 
 </div>
