@@ -10,27 +10,30 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
-  :root { --c1:#FF6B35; --c2:#7C3AED; --c3:#10B981; --c5:#3B82F6; --err:#EF4444; --dark:#0D0D0D; --card:#141414; --border:rgba(255,255,255,0.08); --text:#F0EEE8; --muted:#888; }
+  :root { --c1:#FF6B35; --c2:#7C3AED; --c3:#10B981; --err:#EF4444; --dark:#0D0D0D; --card:#141414; --border:rgba(255,255,255,0.08); --text:#F0EEE8; --muted:#888; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--dark); color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:15px; line-height:1.6; }
   .wrap { max-width:960px; margin:0 auto; padding:48px 24px 96px; }
   
-  /* Navegación y Botones */
+  /* --- Navegación Nueva --- */
   nav { display:flex; align-items:center; gap:10px; justify-content: flex-end; margin-bottom: 20px; }
   .lang-toggle { display:flex; gap:4px; background:rgba(255,255,255,0.06); border-radius:20px; padding:3px; }
   .lang-btn { border:none; background:transparent; color:#888; padding:6px 12px; border-radius:16px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
   .lang-btn.active { background:var(--c1); color:#fff; }
-  .theme-toggle-btn { width:36px; height:36px; border-radius:50%; border:1px solid rgba(128,128,128,.35); background:rgba(128,128,128,.12); cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  
-  header { margin-bottom:40px; }
-  h1 { font-family:'Syne',sans-serif; font-weight:800; font-size:clamp(30px,5vw,44px); letter-spacing:-1.5px; margin-bottom:14px; }
+
+  /* Estilos Originales */
+  .top-link { display:inline-flex; align-items:center; gap:6px; color:var(--muted); text-decoration:none; font-size:13px; margin-bottom:28px; }
+  h1 { font-family:'Syne',sans-serif; font-weight:800; font-size:clamp(30px,5vw,44px); margin-bottom:14px; }
   h1 span { color:var(--c1); }
-  .sub { color:var(--muted); max-width:620px; margin-bottom:6px; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:28px; margin-bottom:20px; }
   .dropzone { border:1.5px dashed var(--border); border-radius:12px; padding:36px 20px; text-align:center; cursor:pointer; }
-  .btn { border:none; padding:10px 20px; border-radius:8px; font-weight:500; cursor:pointer; }
+  .btn { border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
   .btn-primary { background:var(--c1); color:#fff; }
   .hidden { display:none !important; }
+  .ticket { background:#101010; border:1px solid var(--border); border-radius:10px; padding:18px; margin-top:16px; font-family:'Space Mono',monospace; }
+  table.preview { width:100%; border-collapse:collapse; margin-top:14px; }
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .chart-box { background:#101010; border:1px solid var(--border); padding:16px; border-radius:10px; }
 </style>
 </head>
 <body>
@@ -41,45 +44,344 @@
       <button class="lang-btn" id="btn-es" onclick="setLang('es')">ES</button>
       <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
     </div>
-    <button class="theme-toggle-btn" id="theme-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle></svg></button>
   </nav>
 
   <header>
-    <h1 data-en="🤖 Invoice Bot<br><span>runs right here.</span>" data-es="🤖 Bot de Facturas<br><span>corre aquí mismo.</span>">
-      🤖 Invoice Bot<br><span>runs right here.</span>
-    </h1>
-    <p class="sub" data-en="Drop in one or more PDF invoices to extract data." data-es="Arrastra una o más facturas en PDF para extraer datos.">
-      Drop in one or more PDF invoices to extract data.
-    </p>
+    <h1 data-en="🤖 Invoice Bot" data-es="🤖 Bot de Facturas">🤖 Invoice Bot</h1>
+    <p class="sub" data-en="Drop in one or more PDF invoices to extract data." data-es="Arrastra una o más facturas en PDF para extraer datos.">Drop in one or more PDF invoices to extract data.</p>
   </header>
 
   <div class="card">
     <h2 data-en="1. Load invoices" data-es="1. Cargar facturas">1. Load invoices</h2>
-    <div class="dropzone" id="dropzone">
-      <div class="dz-title" data-en="Drag & drop .pdf" data-es="Arrastra archivos .pdf">Drag & drop .pdf</div>
-    </div>
+    <div class="dropzone" id="dropzone">Drag & drop .pdf</div>
+    <input type="file" id="hidden-input" accept=".pdf" multiple style="display:none;">
+    <button class="btn" id="sample-btn" style="margin-top:10px;">▶ Try samples</button>
   </div>
 
-  <div id="results" class="hidden"></div>
-
-  <footer>
-    Built by Efraín Sebastián · <a href="https://github.com/efrabuilder/invoice-bot" target="_blank">source on GitHub</a>
-  </footer>
+  <div id="results" class="hidden">
+     <!-- Aquí va toda tu lógica de resultados original -->
+     <div class="card">
+       <div class="ticket" id="ticket"></div>
+       <table class="preview" id="preview-table"></table>
+     </div>
+  </div>
 </div>
 
 <script>
+// --- Lógica de Idioma ---
 function setLang(lang) {
   document.getElementById('btn-en').classList.toggle('active', lang === 'en');
   document.getElementById('btn-es').classList.toggle('active', lang === 'es');
-  
   document.querySelectorAll('[data-en]').forEach(el => {
-    if (el.dataset[lang]) el.innerHTML = el.dataset[lang];
+    if (el.dataset[lang]) el.textContent = el.dataset[lang];
   });
 }
-
-// Lógica de tema
-const btn = document.getElementById('theme-toggle');
-btn.addEventListener('click', () => document.documentElement.classList.toggle('theme-inverted'));
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+ 
+let charts = {};
+let currentRows = [];
+ 
+const SAMPLE_INVOICES = [
+  { id:'INV-1042', vendor:'Acme Supplies Ltd.',   date:'2026-03-14', billTo:'Hotel Costa Guanacaste', total:1240.50 },
+  { id:'INV-1043', vendor:'Global Linens Co.',    date:'2026-03-15', billTo:'Hotel Costa Guanacaste', total:865.00 },
+  { id:'INV-1044', vendor:'Fresh Produce SA',     date:'2026-03-16', billTo:'Hotel Costa Guanacaste', total:432.75 },
+  { id:'INV-1042', vendor:'Acme Supplies Ltd.',   date:'2026-03-14', billTo:'Hotel Costa Guanacaste', total:1240.50 }, // duplicate of INV-1042
+  { id:'INV-1045', vendor:'CleanPro Services',    date:'',           billTo:'Hotel Costa Guanacaste', total:310.00 }, // missing date
+  { id:'INV-1046', vendor:'Tech Rentals Inc.',    date:'2026-03-18', billTo:'Hotel Costa Guanacaste', total:0 }       // invalid total
+];
+ 
+// ---------- PDF text extraction ----------
+async function extractPdfText(arrayBuffer) {
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    fullText += content.items.map(it => it.str).join('\n') + '\n';
+  }
+  return fullText;
+}
+ 
+// ---------- Field parsing (heuristic, line-based) ----------
+function parseInvoiceText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let invoiceNumber = '', date = '', vendor = '', total = NaN;
+  for (const line of lines) {
+    if (!invoiceNumber) {
+      const m = line.match(/^invoice\s*#?\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-]{2,})$/i);
+      if (m) invoiceNumber = m[1];
+    }
+    if (!date) {
+      const m = line.match(/^date\s*[:\-]?\s*(.+)$/i);
+      if (m) date = m[1].trim();
+    }
+    if (!vendor) {
+      const m = line.match(/^vendor\s*[:\-]?\s*(.+)$/i);
+      if (m) vendor = m[1].trim();
+    }
+    if (isNaN(total)) {
+      const m = line.match(/^total\s*(due)?\s*[:\-]?\s*\$?\s*([\d,]+\.\d{2})$/i);
+      if (m) total = parseFloat(m[2].replace(/,/g, ''));
+    }
+  }
+  return { invoiceNumber, date, vendor, total };
+}
+ 
+function validateInvoice(rec) {
+  const issues = [];
+  if (!rec.invoiceNumber) issues.push('Missing invoice number');
+  if (!rec.date) issues.push('Missing date');
+  if (isNaN(rec.total) || rec.total <= 0) issues.push('Missing or invalid total');
+  return { ...rec, issues: issues.slice(), status: issues.length ? 'invalid' : 'valid' };
+}
+ 
+function flagDuplicates(records) {
+  const groups = {};
+  records.forEach((r, i) => {
+    if (!r.invoiceNumber) return;
+    (groups[r.invoiceNumber] = groups[r.invoiceNumber] || []).push(i);
+  });
+  Object.values(groups).forEach(idxs => {
+    if (idxs.length > 1) {
+      idxs.forEach((idx, pos) => {
+        if (pos === 0) {
+          records[idx].issues.push(`Duplicate invoice number (${idxs.length} occurrences)`);
+        } else {
+          records[idx].status = 'duplicate';
+          records[idx].issues.push('Duplicate of an earlier invoice');
+        }
+      });
+    }
+  });
+  return records;
+}
+ 
+// ---------- File handling ----------
+const dz = document.getElementById('dropzone');
+const input = document.getElementById('hidden-input');
+dz.addEventListener('click', () => input.click());
+['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+dz.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+input.addEventListener('change', e => { if (e.target.files.length) handleFiles(e.target.files); });
+document.getElementById('sample-btn').addEventListener('click', runSample);
+ 
+async function handleFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (!files.length) { alert('Please provide .pdf invoice files.'); return; }
+  setBusy(true);
+  try {
+    const records = [];
+    for (const f of files) {
+      const buf = await f.arrayBuffer();
+      const text = await extractPdfText(buf);
+      records.push({ file: f.name, ...parseInvoiceText(text) });
+    }
+    processResults(records);
+  } catch (err) {
+    alert('Could not parse one or more PDFs: ' + err.message);
+  } finally {
+    setBusy(false);
+  }
+}
+ 
+async function runSample() {
+  setBusy(true);
+  try {
+    const { jsPDF } = window.jspdf;
+    const records = [];
+    for (const inv of SAMPLE_INVOICES) {
+      const doc = new jsPDF();
+      doc.setFontSize(16); doc.text('INVOICE', 14, 20);
+      doc.setFontSize(11);
+      let y = 35;
+      doc.text(`Invoice #: ${inv.id}`, 14, y); y += 8;
+      if (inv.date) { doc.text(`Date: ${inv.date}`, 14, y); y += 8; }
+      doc.text(`Vendor: ${inv.vendor}`, 14, y); y += 8;
+      doc.text(`Bill To: ${inv.billTo}`, 14, y); y += 8;
+      doc.text(`Total Due: $${inv.total.toFixed(2)}`, 14, y); y += 8;
+      const buf = doc.output('arraybuffer');
+      const text = await extractPdfText(buf);
+      records.push({ file: `${inv.id}.pdf`, ...parseInvoiceText(text) });
+    }
+    processResults(records);
+  } finally {
+    setBusy(false);
+  }
+}
+ 
+function setBusy(busy) {
+  dz.classList.toggle('busy', busy);
+  document.getElementById('sample-btn').disabled = busy;
+}
+ 
+// ---------- Processing pipeline ----------
+function processResults(records) {
+  let rows = records.map(validateInvoice);
+  rows = flagDuplicates(rows);
+  currentRows = rows;
+  renderTicket(rows);
+  renderTable(rows);
+  renderCharts(rows);
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+ 
+function fmt$(n) { return isNaN(n) ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+ 
+function renderTicket(rows) {
+  const valid = rows.filter(r => r.status === 'valid');
+  const invalid = rows.filter(r => r.status === 'invalid');
+  const dup = rows.filter(r => r.status === 'duplicate');
+  const sumValid = valid.reduce((a, r) => a + (isNaN(r.total) ? 0 : r.total), 0);
+  const html = `
+    <div class="tline"><span>Invoices processed</span><b>${rows.length}</b></div>
+    <div class="tline"><span>Valid</span><b style="color:var(--c3)">${valid.length}</b></div>
+    <div class="tline"><span>Invalid (missing/bad fields)</span><b style="color:var(--err)">${invalid.length}</b></div>
+    <div class="tline"><span>Duplicates flagged</span><b style="color:var(--c2)">${dup.length}</b></div>
+    <div class="tline"><span>Total billed (valid invoices)</span><b>${fmt$(sumValid)}</b></div>
+    <div class="tline"><span>Generated</span><b>${new Date().toLocaleString()}</b></div>`;
+  document.getElementById('ticket').innerHTML = html;
+}
+ 
+function renderTable(rows) {
+  let html = '<thead><tr><th>File</th><th>Invoice #</th><th>Vendor</th><th>Date</th><th>Total</th><th>Status</th><th>Issues</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    html += `<tr class="row-${r.status}">
+      <td>${r.file}</td>
+      <td>${r.invoiceNumber || '—'}</td>
+      <td>${r.vendor || '—'}</td>
+      <td>${r.date || '—'}</td>
+      <td>${fmt$(r.total)}</td>
+      <td><span class="badge ${r.status}">${r.status}</span></td>
+      <td class="issues-cell">${r.issues.length ? r.issues.join('; ') : '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('preview-table').innerHTML = html;
+}
+ 
+const palette = ['#FF6B35', '#7C3AED', '#10B981', '#3B82F6', '#F59E0B', '#06b6d4', '#ec4899', '#a3e635'];
+ 
+function renderCharts(rows) {
+  Object.values(charts).forEach(c => c.destroy());
+ 
+  const chartOpts = {
+    plugins: { legend: { labels: { color: '#F0EEE8', font: { family: 'Space Grotesk', size: 11 } } } },
+    scales: {
+      x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,.05)' } },
+      y: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,.05)' } }
+    }
+  };
+ 
+  // Bar — total by vendor (any row with a parseable total)
+  const vendorMap = new Map();
+  rows.forEach(r => {
+    if (!r.vendor || isNaN(r.total)) return;
+    vendorMap.set(r.vendor, (vendorMap.get(r.vendor) || 0) + r.total);
+  });
+  charts.bar = new Chart(document.getElementById('chart-bar'), {
+    type: 'bar',
+    data: { labels: [...vendorMap.keys()], datasets: [{ label: 'Total billed', data: [...vendorMap.values()], backgroundColor: palette[0] }] },
+    options: { ...chartOpts, plugins: { legend: { display: false } } }
+  });
+ 
+  // Pie — status breakdown
+  const statusCounts = { valid: 0, invalid: 0, duplicate: 0 };
+  rows.forEach(r => statusCounts[r.status]++);
+  charts.pie = new Chart(document.getElementById('chart-pie'), {
+    type: 'pie',
+    data: {
+      labels: ['Valid', 'Invalid', 'Duplicate'],
+      datasets: [{ data: [statusCounts.valid, statusCounts.invalid, statusCounts.duplicate], backgroundColor: [palette[2], '#EF4444', palette[1]] }]
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { color: '#F0EEE8', font: { family: 'Space Grotesk', size: 11 } } } } }
+  });
+ 
+  // Line — valid invoice amounts over time (chronological where date is parseable)
+  const validDated = rows.filter(r => r.status === 'valid' && /^\d{4}-\d{2}-\d{2}$/.test(r.date));
+  validDated.sort((a, b) => a.date.localeCompare(b.date));
+  charts.line = new Chart(document.getElementById('chart-line'), {
+    type: 'line',
+    data: {
+      labels: validDated.map(r => r.date),
+      datasets: [{ label: 'Amount', data: validDated.map(r => r.total), borderColor: palette[1], backgroundColor: 'rgba(124,58,237,0.15)', fill: true, tension: .3 }]
+    },
+    options: { ...chartOpts, plugins: { legend: { display: false } } }
+  });
+}
+ 
+// ---------- Exports ----------
+document.getElementById('download-xlsx').addEventListener('click', () => {
+  const rows = currentRows;
+  const summarySheet = XLSX.utils.json_to_sheet([{
+    'Invoices processed': rows.length,
+    'Valid': rows.filter(r => r.status === 'valid').length,
+    'Invalid': rows.filter(r => r.status === 'invalid').length,
+    'Duplicates': rows.filter(r => r.status === 'duplicate').length,
+    'Total billed (valid)': +rows.filter(r => r.status === 'valid').reduce((a, r) => a + (isNaN(r.total) ? 0 : r.total), 0).toFixed(2),
+    'Generated': new Date().toLocaleString()
+  }]);
+  const dataSheet = XLSX.utils.json_to_sheet(rows.map(r => ({
+    File: r.file, 'Invoice #': r.invoiceNumber, Vendor: r.vendor, Date: r.date,
+    Total: isNaN(r.total) ? '' : r.total, Status: r.status, Issues: r.issues.join('; ')
+  })));
+  const flagged = rows.filter(r => r.status !== 'valid');
+  const flaggedSheet = XLSX.utils.json_to_sheet(flagged.map(r => ({
+    File: r.file, 'Invoice #': r.invoiceNumber, Vendor: r.vendor, Status: r.status, Issues: r.issues.join('; ')
+  })));
+ 
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+  XLSX.utils.book_append_sheet(wb, dataSheet, 'Extracted Data');
+  XLSX.utils.book_append_sheet(wb, flaggedSheet, 'Flagged for Review');
+  XLSX.writeFile(wb, 'invoice-bot-export.xlsx');
+});
+ 
+document.getElementById('download-pdf').addEventListener('click', () => {
+  const rows = currentRows;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+  doc.text('Invoice Bot — Generated Report', 14, 18);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(120);
+  doc.text(`Generated ${new Date().toLocaleString()} · ${rows.length} invoices processed`, 14, 25);
+ 
+  const valid = rows.filter(r => r.status === 'valid');
+  const invalid = rows.filter(r => r.status === 'invalid');
+  const dup = rows.filter(r => r.status === 'duplicate');
+  const sumValid = valid.reduce((a, r) => a + (isNaN(r.total) ? 0 : r.total), 0);
+ 
+  let y = 36;
+  doc.setTextColor(0); doc.setFontSize(10);
+  doc.text(`Valid: ${valid.length}   Invalid: ${invalid.length}   Duplicates: ${dup.length}   Total billed (valid): ${fmt$(sumValid)}`, 14, y);
+  y += 10;
+ 
+  const flagged = rows.filter(r => r.status !== 'valid');
+  if (flagged.length) {
+    doc.setFont('helvetica', 'bold'); doc.text('Flagged for review:', 14, y); y += 6;
+    doc.setFont('helvetica', 'normal');
+    flagged.forEach(r => {
+      const line = `${r.file}  (${r.invoiceNumber || 'no #'}) — ${r.status.toUpperCase()}: ${r.issues.join('; ')}`;
+      const split = doc.splitTextToSize(line, 180);
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.text(split, 14, y);
+      y += split.length * 5 + 2;
+    });
+    y += 4;
+  }
+ 
+  ['chart-bar', 'chart-pie', 'chart-line'].forEach(id => {
+    const canvas = document.getElementById(id);
+    const img = canvas.toDataURL('image/png', 1.0);
+    if (y > 210) { doc.addPage(); y = 20; }
+    doc.setFontSize(11); doc.text(canvas.parentElement.querySelector('h3').textContent, 14, y);
+    doc.addImage(img, 'PNG', 14, y + 4, 130, 62);
+    y += 74;
+  });
+ 
+  doc.save('invoice-bot-export.pdf');
+});
 </script>
 </body>
 </html>
