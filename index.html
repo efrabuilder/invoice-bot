@@ -76,6 +76,16 @@
   footer { text-align:center; padding-top:40px; font-size:12.5px; color:var(--muted); }
   footer a { color:var(--c1); text-decoration:none; }
   .hidden { display:none !important; }
+.theme-toggle-btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(128,128,128,.35);background:rgba(128,128,128,.12);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s ease;flex-shrink:0;}
+.theme-toggle-btn:hover{transform:scale(1.08);}
+.theme-toggle-btn svg{width:20px;height:20px;}
+.theme-toggle-btn .icon-moon{display:none;}
+html.theme-inverted .theme-toggle-btn .icon-sun{display:none;}
+html.theme-inverted .theme-toggle-btn .icon-moon{display:block;}
+html.theme-inverted{filter:invert(1) hue-rotate(180deg);}
+html.theme-inverted img,html.theme-inverted video,html.theme-inverted iframe,html.theme-inverted svg image,html.theme-inverted .theme-toggle-btn{filter:invert(1) hue-rotate(180deg);}
+
+  
 </style>
 </head>
 <body>
@@ -135,6 +145,18 @@
   <footer>
     Built by Efraín Sebastián · <a href="https://github.com/efrabuilder/invoice-bot" target="_blank">source on GitHub</a>
   </footer>
+
+  <nav> .lang-toggle { display:flex; gap:4px; background:rgba(255,255,255,0.06); border-radius:20px; padding:3px; }<div style="display:flex;align-items:center;gap:10px;">
+    <div class="lang-toggle">
+      <button class="lang-btn" id="btn-es" onclick="setLang('es')">ES</button>
+      <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    </div>
+    <button class="theme-toggle-btn" id="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema claro/oscuro">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</nav>
 
 </div>
 
@@ -445,6 +467,29 @@ document.getElementById('download-pdf').addEventListener('click', () => {
 
   doc.save('invoice-bot-export.pdf');
 });
+ (function(){
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-toggle');
+  var saved = localStorage.getItem('theme-inverted');
+  if (saved === 'true') root.classList.add('theme-inverted');
+  btn.addEventListener('click', function(){
+    root.classList.toggle('theme-inverted');
+    localStorage.setItem('theme-inverted', root.classList.contains('theme-inverted'));
+  });
+})();
+
+
+ function setLang(lang) {
+    document.querySelectorAll('[data-en]').forEach(el => {
+      if (el.dataset[lang]) el.textContent = el.dataset[lang];
+    });
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    document.getElementById('btn-es').classList.toggle('active', lang === 'es');
+    document.getElementById('cv-btn-en').style.display = lang === 'en' ? 'inline-block' : 'none';
+    document.getElementById('cv-btn-es').style.display = lang === 'es' ? 'inline-block' : 'none';
+  }
+
+  
 </script>
 </body>
 </html>
