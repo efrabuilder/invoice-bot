@@ -10,508 +10,76 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
-  :root {
-    --c1:#FF6B35; --c2:#7C3AED; --c3:#10B981; --c5:#3B82F6; --err:#EF4444;
-    --dark:#0D0D0D; --card:#141414; --border:rgba(255,255,255,0.08);
-    --text:#F0EEE8; --muted:#888;
-  }
+  :root { --c1:#FF6B35; --c2:#7C3AED; --c3:#10B981; --c5:#3B82F6; --err:#EF4444; --dark:#0D0D0D; --card:#141414; --border:rgba(255,255,255,0.08); --text:#F0EEE8; --muted:#888; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--dark); color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:15px; line-height:1.6; }
   .wrap { max-width:960px; margin:0 auto; padding:48px 24px 96px; }
-  .top-link { display:inline-flex; align-items:center; gap:6px; color:var(--muted); text-decoration:none; font-size:13px; margin-bottom:28px; }
-  .top-link:hover { color:var(--text); }
+  
+  /* Navegación y Botones */
+  nav { display:flex; align-items:center; gap:10px; justify-content: flex-end; margin-bottom: 20px; }
+  .lang-toggle { display:flex; gap:4px; background:rgba(255,255,255,0.06); border-radius:20px; padding:3px; }
+  .lang-btn { border:none; background:transparent; color:#888; padding:6px 12px; border-radius:16px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+  .lang-btn.active { background:var(--c1); color:#fff; }
+  .theme-toggle-btn { width:36px; height:36px; border-radius:50%; border:1px solid rgba(128,128,128,.35); background:rgba(128,128,128,.12); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  
   header { margin-bottom:40px; }
-  .eyebrow { font-size:12px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:var(--c1); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
-  .eyebrow .dot { width:6px; height:6px; border-radius:50%; background:var(--c1); animation:pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
   h1 { font-family:'Syne',sans-serif; font-weight:800; font-size:clamp(30px,5vw,44px); letter-spacing:-1.5px; margin-bottom:14px; }
   h1 span { color:var(--c1); }
-  .sub { color:var(--muted); max-width:620px; font-size:15px; margin-bottom:6px; }
-  .note { font-size:12.5px; color:var(--muted); background:rgba(255,107,53,0.08); border:1px solid rgba(255,107,53,0.18); border-radius:8px; padding:8px 14px; display:inline-block; margin-top:14px; max-width:100%; }
-
+  .sub { color:var(--muted); max-width:620px; margin-bottom:6px; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:28px; margin-bottom:20px; }
-  .card h2 { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
-  .step-n { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:rgba(255,107,53,0.15); color:var(--c1); font-size:12px; font-weight:700; font-family:'Space Mono',monospace; }
-
-  .dropzone { border:1.5px dashed var(--border); border-radius:12px; padding:36px 20px; text-align:center; cursor:pointer; transition:all .2s; }
-  .dropzone:hover, .dropzone.drag { border-color:var(--c1); background:rgba(255,107,53,0.05); }
-  .dropzone.busy { opacity:.5; pointer-events:none; }
-  .dropzone .icon { font-size:30px; margin-bottom:10px; }
-  .dropzone .dz-title { font-weight:600; margin-bottom:4px; }
-  .dropzone .dz-sub { font-size:13px; color:var(--muted); }
-  input[type=file] { display:none; }
-  .actions-row { display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
-  .btn { border:none; padding:10px 20px; border-radius:8px; font-size:14px; font-family:'Space Grotesk',sans-serif; font-weight:500; cursor:pointer; transition:all .2s; }
+  .dropzone { border:1.5px dashed var(--border); border-radius:12px; padding:36px 20px; text-align:center; cursor:pointer; }
+  .btn { border:none; padding:10px 20px; border-radius:8px; font-weight:500; cursor:pointer; }
   .btn-primary { background:var(--c1); color:#fff; }
-  .btn-primary:hover { background:#ff4d1a; transform:translateY(-1px); }
-  .btn-outline { background:transparent; color:var(--text); border:1px solid var(--border); }
-  .btn-outline:hover { border-color:rgba(255,255,255,.25); }
-  .btn:disabled { opacity:.4; cursor:not-allowed; transform:none !important; }
-
-  .ticket { background:#101010; border:1px solid var(--border); border-radius:10px; padding:18px 20px; font-family:'Space Mono',monospace; font-size:12.5px; color:#cfcfcf; margin-top:16px; }
-  .ticket .tline { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.06); gap:16px; }
-  .ticket .tline:last-child { border-bottom:none; }
-  .ticket .tline b { color:var(--text); text-align:right; }
-
-  table.preview { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:14px; }
-  table.preview th, table.preview td { padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
-  table.preview th { color:var(--c1); font-weight:600; text-transform:uppercase; font-size:10.5px; letter-spacing:.5px; }
-  table.preview tr.row-invalid td { background:rgba(239,68,68,0.04); }
-  table.preview tr.row-duplicate td { background:rgba(124,58,237,0.06); }
-  .table-scroll { overflow-x:auto; }
-  .issues-cell { color:var(--muted); font-size:11.5px; white-space:normal; max-width:220px; }
-
-  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
-  .badge.valid { background:rgba(16,185,129,0.15); color:var(--c3); }
-  .badge.invalid { background:rgba(239,68,68,0.15); color:var(--err); }
-  .badge.duplicate { background:rgba(124,58,237,0.15); color:var(--c2); }
-
-  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-  .chart-box { background:#101010; border:1px solid var(--border); border-radius:10px; padding:16px; }
-  .chart-box h3 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--muted); }
-  .chart-box.full { grid-column:1 / -1; }
-  canvas { max-height:260px; }
-  @media (max-width:640px){ .charts-grid{grid-template-columns:1fr;} }
-
-  footer { text-align:center; padding-top:40px; font-size:12.5px; color:var(--muted); }
-  footer a { color:var(--c1); text-decoration:none; }
   .hidden { display:none !important; }
-.theme-toggle-btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(128,128,128,.35);background:rgba(128,128,128,.12);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s ease;flex-shrink:0;}
-.theme-toggle-btn:hover{transform:scale(1.08);}
-.theme-toggle-btn svg{width:20px;height:20px;}
-.theme-toggle-btn .icon-moon{display:none;}
-html.theme-inverted .theme-toggle-btn .icon-sun{display:none;}
-html.theme-inverted .theme-toggle-btn .icon-moon{display:block;}
-html.theme-inverted{filter:invert(1) hue-rotate(180deg);}
-html.theme-inverted img,html.theme-inverted video,html.theme-inverted iframe,html.theme-inverted svg image,html.theme-inverted .theme-toggle-btn{filter:invert(1) hue-rotate(180deg);}
-
-  <style>
-  .lang-toggle { 
-    display: flex; 
-    gap: 4px; 
-    background: rgba(255,255,255,0.06); 
-    border-radius: 20px; 
-    padding: 3px; 
-  }
-  .lang-btn {
-    border: none;
-    background: transparent;
-    color: #888;
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .lang-btn.active {
-    background: var(--c1); /* Naranja */
-    color: #fff;
-  }
-</style>
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <a class="top-link" href="https://github.com/efrabuilder/invoice-bot" target="_blank">← github.com/efrabuilder/invoice-bot</a>
+  <nav>
+    <div class="lang-toggle">
+      <button class="lang-btn" id="btn-es" onclick="setLang('es')">ES</button>
+      <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    </div>
+    <button class="theme-toggle-btn" id="theme-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle></svg></button>
+  </nav>
 
   <header>
-    <div class="eyebrow"><span class="dot"></span>Live browser demo</div>
-    <h1>🤖 Invoice Bot<br><span>runs right here.</span></h1>
-    <p class="sub">Drop in one or more PDF invoices and this page rebuilds the core of the Python tool — text extraction, field validation, duplicate detection, and Excel/PDF report generation — entirely client-side.</p>
-    <div class="note">⚙️ This demo re-implements the extraction &amp; validation engine in JavaScript (via pdf.js) so it can run without a server. Field detection looks for lines like "Invoice #:", "Date:", "Vendor:" and "Total:" — real invoices with different layouts may extract partially, which is exactly what the validator is built to catch. The full project (Python, pdfplumber, batch runs) lives in the repo linked above.</div>
+    <h1 data-en="🤖 Invoice Bot<br><span>runs right here.</span>" data-es="🤖 Bot de Facturas<br><span>corre aquí mismo.</span>">
+      🤖 Invoice Bot<br><span>runs right here.</span>
+    </h1>
+    <p class="sub" data-en="Drop in one or more PDF invoices to extract data." data-es="Arrastra una o más facturas en PDF para extraer datos.">
+      Drop in one or more PDF invoices to extract data.
+    </p>
   </header>
 
   <div class="card">
-    <h2><span class="step-n">1</span> Load invoices</h2>
+    <h2 data-en="1. Load invoices" data-es="1. Cargar facturas">1. Load invoices</h2>
     <div class="dropzone" id="dropzone">
-      <div class="icon">🧾</div>
-      <div class="dz-title">Drag &amp; drop one or more .pdf invoices</div>
-      <div class="dz-sub">or click to browse</div>
-    </div>
-    <input type="file" id="hidden-input" accept=".pdf" multiple>
-    <div class="actions-row">
-      <button class="btn btn-outline" id="sample-btn">▶ Try with 6 sample invoices (incl. a duplicate &amp; two errors)</button>
+      <div class="dz-title" data-en="Drag & drop .pdf" data-es="Arrastra archivos .pdf">Drag & drop .pdf</div>
     </div>
   </div>
 
-  <div id="results" class="hidden">
-
-    <div class="card">
-      <h2><span class="step-n">2</span> Extraction &amp; validation</h2>
-      <div class="ticket" id="ticket"></div>
-      <div class="table-scroll">
-        <table class="preview" id="preview-table"></table>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2><span class="step-n">3</span> Generated charts</h2>
-      <div class="charts-grid">
-        <div class="chart-box"><h3>Bar — total billed by vendor</h3><canvas id="chart-bar"></canvas></div>
-        <div class="chart-box"><h3>Pie — status breakdown</h3><canvas id="chart-pie"></canvas></div>
-        <div class="chart-box full"><h3>Line — valid invoice amounts over time</h3><canvas id="chart-line"></canvas></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2><span class="step-n">4</span> Export report</h2>
-      <div class="actions-row" style="justify-content:flex-start;">
-        <button class="btn btn-primary" id="download-xlsx">⬇ Download Excel report (.xlsx)</button>
-        <button class="btn btn-primary" id="download-pdf">⬇ Download PDF report (.pdf)</button>
-      </div>
-    </div>
-
-  </div>
+  <div id="results" class="hidden"></div>
 
   <footer>
     Built by Efraín Sebastián · <a href="https://github.com/efrabuilder/invoice-bot" target="_blank">source on GitHub</a>
   </footer>
-
-<nav style="display:flex; align-items:center; gap:10px; justify-content: flex-end; margin-bottom: 20px;">
-  <div class="lang-toggle">
-    <button class="lang-btn" id="btn-es" onclick="setLang('es')">ES</button>
-    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
-  </div>
-  <button class="theme-toggle-btn" id="theme-toggle" title="Cambiar tema">
-    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-  </button>
-</nav>
-
 </div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-let charts = {};
-let currentRows = [];
-
-const SAMPLE_INVOICES = [
-  { id:'INV-1042', vendor:'Acme Supplies Ltd.',   date:'2026-03-14', billTo:'Hotel Costa Guanacaste', total:1240.50 },
-  { id:'INV-1043', vendor:'Global Linens Co.',    date:'2026-03-15', billTo:'Hotel Costa Guanacaste', total:865.00 },
-  { id:'INV-1044', vendor:'Fresh Produce SA',     date:'2026-03-16', billTo:'Hotel Costa Guanacaste', total:432.75 },
-  { id:'INV-1042', vendor:'Acme Supplies Ltd.',   date:'2026-03-14', billTo:'Hotel Costa Guanacaste', total:1240.50 }, // duplicate of INV-1042
-  { id:'INV-1045', vendor:'CleanPro Services',    date:'',           billTo:'Hotel Costa Guanacaste', total:310.00 }, // missing date
-  { id:'INV-1046', vendor:'Tech Rentals Inc.',    date:'2026-03-18', billTo:'Hotel Costa Guanacaste', total:0 }       // invalid total
-];
-
-// ---------- PDF text extraction ----------
-async function extractPdfText(arrayBuffer) {
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  let fullText = '';
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    fullText += content.items.map(it => it.str).join('\n') + '\n';
-  }
-  return fullText;
-}
-
-// ---------- Field parsing (heuristic, line-based) ----------
-function parseInvoiceText(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let invoiceNumber = '', date = '', vendor = '', total = NaN;
-  for (const line of lines) {
-    if (!invoiceNumber) {
-      const m = line.match(/^invoice\s*#?\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-]{2,})$/i);
-      if (m) invoiceNumber = m[1];
-    }
-    if (!date) {
-      const m = line.match(/^date\s*[:\-]?\s*(.+)$/i);
-      if (m) date = m[1].trim();
-    }
-    if (!vendor) {
-      const m = line.match(/^vendor\s*[:\-]?\s*(.+)$/i);
-      if (m) vendor = m[1].trim();
-    }
-    if (isNaN(total)) {
-      const m = line.match(/^total\s*(due)?\s*[:\-]?\s*\$?\s*([\d,]+\.\d{2})$/i);
-      if (m) total = parseFloat(m[2].replace(/,/g, ''));
-    }
-  }
-  return { invoiceNumber, date, vendor, total };
-}
-
-function validateInvoice(rec) {
-  const issues = [];
-  if (!rec.invoiceNumber) issues.push('Missing invoice number');
-  if (!rec.date) issues.push('Missing date');
-  if (isNaN(rec.total) || rec.total <= 0) issues.push('Missing or invalid total');
-  return { ...rec, issues: issues.slice(), status: issues.length ? 'invalid' : 'valid' };
-}
-
-function flagDuplicates(records) {
-  const groups = {};
-  records.forEach((r, i) => {
-    if (!r.invoiceNumber) return;
-    (groups[r.invoiceNumber] = groups[r.invoiceNumber] || []).push(i);
-  });
-  Object.values(groups).forEach(idxs => {
-    if (idxs.length > 1) {
-      idxs.forEach((idx, pos) => {
-        if (pos === 0) {
-          records[idx].issues.push(`Duplicate invoice number (${idxs.length} occurrences)`);
-        } else {
-          records[idx].status = 'duplicate';
-          records[idx].issues.push('Duplicate of an earlier invoice');
-        }
-      });
-    }
-  });
-  return records;
-}
-
-// ---------- File handling ----------
-const dz = document.getElementById('dropzone');
-const input = document.getElementById('hidden-input');
-dz.addEventListener('click', () => input.click());
-['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
-['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
-dz.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
-input.addEventListener('change', e => { if (e.target.files.length) handleFiles(e.target.files); });
-document.getElementById('sample-btn').addEventListener('click', runSample);
-
-async function handleFiles(fileList) {
-  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-  if (!files.length) { alert('Please provide .pdf invoice files.'); return; }
-  setBusy(true);
-  try {
-    const records = [];
-    for (const f of files) {
-      const buf = await f.arrayBuffer();
-      const text = await extractPdfText(buf);
-      records.push({ file: f.name, ...parseInvoiceText(text) });
-    }
-    processResults(records);
-  } catch (err) {
-    alert('Could not parse one or more PDFs: ' + err.message);
-  } finally {
-    setBusy(false);
-  }
-}
-
-async function runSample() {
-  setBusy(true);
-  try {
-    const { jsPDF } = window.jspdf;
-    const records = [];
-    for (const inv of SAMPLE_INVOICES) {
-      const doc = new jsPDF();
-      doc.setFontSize(16); doc.text('INVOICE', 14, 20);
-      doc.setFontSize(11);
-      let y = 35;
-      doc.text(`Invoice #: ${inv.id}`, 14, y); y += 8;
-      if (inv.date) { doc.text(`Date: ${inv.date}`, 14, y); y += 8; }
-      doc.text(`Vendor: ${inv.vendor}`, 14, y); y += 8;
-      doc.text(`Bill To: ${inv.billTo}`, 14, y); y += 8;
-      doc.text(`Total Due: $${inv.total.toFixed(2)}`, 14, y); y += 8;
-      const buf = doc.output('arraybuffer');
-      const text = await extractPdfText(buf);
-      records.push({ file: `${inv.id}.pdf`, ...parseInvoiceText(text) });
-    }
-    processResults(records);
-  } finally {
-    setBusy(false);
-  }
-}
-
-function setBusy(busy) {
-  dz.classList.toggle('busy', busy);
-  document.getElementById('sample-btn').disabled = busy;
-}
-
-// ---------- Processing pipeline ----------
-function processResults(records) {
-  let rows = records.map(validateInvoice);
-  rows = flagDuplicates(rows);
-  currentRows = rows;
-  renderTicket(rows);
-  renderTable(rows);
-  renderCharts(rows);
-  document.getElementById('results').classList.remove('hidden');
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function fmt$(n) { return isNaN(n) ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-
-function renderTicket(rows) {
-  const valid = rows.filter(r => r.status === 'valid');
-  const invalid = rows.filter(r => r.status === 'invalid');
-  const dup = rows.filter(r => r.status === 'duplicate');
-  const sumValid = valid.reduce((a, r) => a + (isNaN(r.total) ? 0 : r.total), 0);
-  const html = `
-    <div class="tline"><span>Invoices processed</span><b>${rows.length}</b></div>
-    <div class="tline"><span>Valid</span><b style="color:var(--c3)">${valid.length}</b></div>
-    <div class="tline"><span>Invalid (missing/bad fields)</span><b style="color:var(--err)">${invalid.length}</b></div>
-    <div class="tline"><span>Duplicates flagged</span><b style="color:var(--c2)">${dup.length}</b></div>
-    <div class="tline"><span>Total billed (valid invoices)</span><b>${fmt$(sumValid)}</b></div>
-    <div class="tline"><span>Generated</span><b>${new Date().toLocaleString()}</b></div>`;
-  document.getElementById('ticket').innerHTML = html;
-}
-
-function renderTable(rows) {
-  let html = '<thead><tr><th>File</th><th>Invoice #</th><th>Vendor</th><th>Date</th><th>Total</th><th>Status</th><th>Issues</th></tr></thead><tbody>';
-  rows.forEach(r => {
-    html += `<tr class="row-${r.status}">
-      <td>${r.file}</td>
-      <td>${r.invoiceNumber || '—'}</td>
-      <td>${r.vendor || '—'}</td>
-      <td>${r.date || '—'}</td>
-      <td>${fmt$(r.total)}</td>
-      <td><span class="badge ${r.status}">${r.status}</span></td>
-      <td class="issues-cell">${r.issues.length ? r.issues.join('; ') : '—'}</td>
-    </tr>`;
-  });
-  html += '</tbody>';
-  document.getElementById('preview-table').innerHTML = html;
-}
-
-const palette = ['#FF6B35', '#7C3AED', '#10B981', '#3B82F6', '#F59E0B', '#06b6d4', '#ec4899', '#a3e635'];
-
-function renderCharts(rows) {
-  Object.values(charts).forEach(c => c.destroy());
-
-  const chartOpts = {
-    plugins: { legend: { labels: { color: '#F0EEE8', font: { family: 'Space Grotesk', size: 11 } } } },
-    scales: {
-      x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,.05)' } },
-      y: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,.05)' } }
-    }
-  };
-
-  // Bar — total by vendor (any row with a parseable total)
-  const vendorMap = new Map();
-  rows.forEach(r => {
-    if (!r.vendor || isNaN(r.total)) return;
-    vendorMap.set(r.vendor, (vendorMap.get(r.vendor) || 0) + r.total);
-  });
-  charts.bar = new Chart(document.getElementById('chart-bar'), {
-    type: 'bar',
-    data: { labels: [...vendorMap.keys()], datasets: [{ label: 'Total billed', data: [...vendorMap.values()], backgroundColor: palette[0] }] },
-    options: { ...chartOpts, plugins: { legend: { display: false } } }
-  });
-
-  // Pie — status breakdown
-  const statusCounts = { valid: 0, invalid: 0, duplicate: 0 };
-  rows.forEach(r => statusCounts[r.status]++);
-  charts.pie = new Chart(document.getElementById('chart-pie'), {
-    type: 'pie',
-    data: {
-      labels: ['Valid', 'Invalid', 'Duplicate'],
-      datasets: [{ data: [statusCounts.valid, statusCounts.invalid, statusCounts.duplicate], backgroundColor: [palette[2], '#EF4444', palette[1]] }]
-    },
-    options: { plugins: { legend: { position: 'bottom', labels: { color: '#F0EEE8', font: { family: 'Space Grotesk', size: 11 } } } } }
-  });
-
-  // Line — valid invoice amounts over time (chronological where date is parseable)
-  const validDated = rows.filter(r => r.status === 'valid' && /^\d{4}-\d{2}-\d{2}$/.test(r.date));
-  validDated.sort((a, b) => a.date.localeCompare(b.date));
-  charts.line = new Chart(document.getElementById('chart-line'), {
-    type: 'line',
-    data: {
-      labels: validDated.map(r => r.date),
-      datasets: [{ label: 'Amount', data: validDated.map(r => r.total), borderColor: palette[1], backgroundColor: 'rgba(124,58,237,0.15)', fill: true, tension: .3 }]
-    },
-    options: { ...chartOpts, plugins: { legend: { display: false } } }
-  });
-}
-
-// ---------- Exports ----------
-document.getElementById('download-xlsx').addEventListener('click', () => {
-  const rows = currentRows;
-  const summarySheet = XLSX.utils.json_to_sheet([{
-    'Invoices processed': rows.length,
-    'Valid': rows.filter(r => r.status === 'valid').length,
-    'Invalid': rows.filter(r => r.status === 'invalid').length,
-    'Duplicates': rows.filter(r => r.status === 'duplicate').length,
-    'Total billed (valid)': +rows.filter(r => r.status === 'valid').reduce((a, r) => a + (isNaN(r.total) ? 0 : r.total), 0).toFixed(2),
-    'Generated': new Date().toLocaleString()
-  }]);
-  const dataSheet = XLSX.utils.json_to_sheet(rows.map(r => ({
-    File: r.file, 'Invoice #': r.invoiceNumber, Vendor: r.vendor, Date: r.date,
-    Total: isNaN(r.total) ? '' : r.total, Status: r.status, Issues: r.issues.join('; ')
-  })));
-  const flagged = rows.filter(r => r.status !== 'valid');
-  const flaggedSheet = XLSX.utils.json_to_sheet(flagged.map(r => ({
-    File: r.file, 'Invoice #': r.invoiceNumber, Vendor: r.vendor, Status: r.status, Issues: r.issues.join('; ')
-  })));
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
-  XLSX.utils.book_append_sheet(wb, dataSheet, 'Extracted Data');
-  XLSX.utils.book_append_sheet(wb, flaggedSheet, 'Flagged for Review');
-  XLSX.writeFile(wb, 'invoice-bot-export.xlsx');
-});
-
-document.getElementById('download-pdf').addEventListener('click', () => {
-  const rows = currentRows;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-  doc.text('Invoice Bot — Generated Report', 14, 18);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(120);
-  doc.text(`Generated ${new Date().toLocaleString()} · ${rows.length} invoices processed`, 14, 25);
-
-  const valid = rows.filter(r => r.status === 'valid');
-  const invalid = rows.filter(r => r.status === 'invalid');
-  const dup = rows.filter(r => r.status === 'duplicate');
-  const sumValid = valid.reduce((a, r) => a + (isNaN(r.total) ? 0 : r.total), 0);
-
-  let y = 36;
-  doc.setTextColor(0); doc.setFontSize(10);
-  doc.text(`Valid: ${valid.length}   Invalid: ${invalid.length}   Duplicates: ${dup.length}   Total billed (valid): ${fmt$(sumValid)}`, 14, y);
-  y += 10;
-
-  const flagged = rows.filter(r => r.status !== 'valid');
-  if (flagged.length) {
-    doc.setFont('helvetica', 'bold'); doc.text('Flagged for review:', 14, y); y += 6;
-    doc.setFont('helvetica', 'normal');
-    flagged.forEach(r => {
-      const line = `${r.file}  (${r.invoiceNumber || 'no #'}) — ${r.status.toUpperCase()}: ${r.issues.join('; ')}`;
-      const split = doc.splitTextToSize(line, 180);
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.text(split, 14, y);
-      y += split.length * 5 + 2;
-    });
-    y += 4;
-  }
-
-  ['chart-bar', 'chart-pie', 'chart-line'].forEach(id => {
-    const canvas = document.getElementById(id);
-    const img = canvas.toDataURL('image/png', 1.0);
-    if (y > 210) { doc.addPage(); y = 20; }
-    doc.setFontSize(11); doc.text(canvas.parentElement.querySelector('h3').textContent, 14, y);
-    doc.addImage(img, 'PNG', 14, y + 4, 130, 62);
-    y += 74;
-  });
-
-  doc.save('invoice-bot-export.pdf');
-});
- (function(){
-  var root = document.documentElement;
-  var btn = document.getElementById('theme-toggle');
-  var saved = localStorage.getItem('theme-inverted');
-  if (saved === 'true') root.classList.add('theme-inverted');
-  btn.addEventListener('click', function(){
-    root.classList.toggle('theme-inverted');
-    localStorage.setItem('theme-inverted', root.classList.contains('theme-inverted'));
-  });
-})();
-
-
- function setLang(lang) {
-    document.querySelectorAll('[data-en]').forEach(el => {
-      if (el.dataset[lang]) el.textContent = el.dataset[lang];
-    });
-    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-    document.getElementById('btn-es').classList.toggle('active', lang === 'es');
-    document.getElementById('cv-btn-en').style.display = lang === 'en' ? 'inline-block' : 'none';
-    document.getElementById('cv-btn-es').style.display = lang === 'es' ? 'inline-block' : 'none';
-  }
-
+function setLang(lang) {
+  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+  document.getElementById('btn-es').classList.toggle('active', lang === 'es');
   
+  document.querySelectorAll('[data-en]').forEach(el => {
+    if (el.dataset[lang]) el.innerHTML = el.dataset[lang];
+  });
+}
+
+// Lógica de tema
+const btn = document.getElementById('theme-toggle');
+btn.addEventListener('click', () => document.documentElement.classList.toggle('theme-inverted'));
 </script>
 </body>
 </html>
