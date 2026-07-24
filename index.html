@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Invoice Bot — Live Demo</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <style>
   :root {
     --c1:#FF6B35; --c2:#7C3AED; --c3:#10B981; --c5:#3B82F6; --err:#EF4444;
@@ -169,11 +169,21 @@
 </div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 let charts = {};
 let currentRows = [];
 let currentLang = 'en';
+
+// ---------- Library availability check ----------
+function checkLibsLoaded() {
+  const missing = [];
+  if (typeof XLSX === 'undefined') missing.push('SheetJS (xlsx)');
+  if (typeof Chart === 'undefined') missing.push('Chart.js');
+  if (typeof window.jspdf === 'undefined') missing.push('jsPDF');
+  if (typeof pdfjsLib === 'undefined') missing.push('pdf.js');
+  return missing;
+}
 
 // ---------- i18n ----------
 const I18N = {
@@ -198,6 +208,7 @@ const I18N = {
     footerLink: 'source on GitHub',
     alertNoPdf: 'Please provide .pdf invoice files.',
     alertParseError: 'Could not parse one or more PDFs: ',
+    alertLibsMissing: 'These libraries failed to load (check your connection or ad blocker): ',
     tInvoicesProcessed: 'Invoices processed',
     tValid: 'Valid',
     tInvalid: 'Invalid (missing/bad fields)',
@@ -239,6 +250,7 @@ const I18N = {
     footerLink: 'código fuente en GitHub',
     alertNoPdf: 'Por favor proporciona archivos de factura en .pdf.',
     alertParseError: 'No se pudo procesar uno o más PDFs: ',
+    alertLibsMissing: 'No se pudieron cargar estas librerías (revisa tu conexión o bloqueador de anuncios): ',
     tInvoicesProcessed: 'Facturas procesadas',
     tValid: 'Válidas',
     tInvalid: 'Inválidas (campos faltantes/erróneos)',
@@ -393,6 +405,8 @@ input.addEventListener('change', e => { if (e.target.files.length) handleFiles(e
 document.getElementById('sample-btn').addEventListener('click', runSample);
 
 async function handleFiles(fileList) {
+  const missing = checkLibsLoaded();
+  if (missing.length) { alert(t('alertLibsMissing') + missing.join(', ')); return; }
   const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.pdf'));
   if (!files.length) { alert(t('alertNoPdf')); return; }
   setBusy(true);
@@ -412,6 +426,8 @@ async function handleFiles(fileList) {
 }
 
 async function runSample() {
+  const missing = checkLibsLoaded();
+  if (missing.length) { alert(t('alertLibsMissing') + missing.join(', ')); return; }
   setBusy(true);
   try {
     const { jsPDF } = window.jspdf;
