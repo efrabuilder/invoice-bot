@@ -13,6 +13,9 @@ invoices = [
     {"number": "INV-2026-003", "date": "10/03/2026", "vendor": "CloudServices Inc.", "items": [("AWS Hosting March", 1, 320.00), ("SSL Certificate", 1, 45.00)], "file": "invoice_003.pdf"},
     {"number": "INV-2026-001", "date": "11/03/2026", "vendor": "TechSupplies CR S.A.", "items": [("USB Hub", 5, 18.00)], "file": "invoice_004_duplicate.pdf"},
     {"number": "", "date": "", "vendor": "", "items": [("Unknown item", 1, 99.00)], "file": "invoice_005_invalid.pdf"},
+    # Regression case: EU/LatAm decimal format (comma as decimal separator).
+    # Before the fix, "1.234,56" was parsed as the number 1.23456.
+    {"number": "INV-2026-006", "date": "15/03/2026", "vendor": "Importadora del Este S.A.", "items": [("Servidor HP ProLiant", 1, 1234.56)], "file": "invoice_006_eu_format.pdf", "eu_format": True},
 ]
 
 for inv in invoices:
@@ -55,6 +58,15 @@ for inv in invoices:
     pdf.cell(35, 8, "Amount", fill=True, align="C")
     pdf.ln()
 
+    eu_format = inv.get("eu_format", False)
+
+    def fmt(n):
+        """Format a number either as 1,234.56 (default) or 1.234,56 (eu_format)."""
+        s = f"{n:,.2f}"  # "1,234.56"
+        if eu_format:
+            s = s.replace(",", "_").replace(".", ",").replace("_", ".")
+        return s
+
     total = 0
     pdf.set_font("Helvetica", "", 10)
     for i, (desc, qty, price) in enumerate(inv["items"]):
@@ -64,8 +76,8 @@ for inv in invoices:
         pdf.set_text_color(240, 238, 232)
         pdf.cell(90, 7, desc, fill=True)
         pdf.cell(30, 7, str(qty), fill=True, align="C")
-        pdf.cell(35, 7, f"${price:.2f}", fill=True, align="C")
-        pdf.cell(35, 7, f"${amount:.2f}", fill=True, align="C")
+        pdf.cell(35, 7, f"${fmt(price)}", fill=True, align="C")
+        pdf.cell(35, 7, f"${fmt(amount)}", fill=True, align="C")
         pdf.ln()
 
     pdf.ln(4)
@@ -73,7 +85,7 @@ for inv in invoices:
     pdf.set_text_color(255, 107, 53)
     pdf.cell(155, 9, "TOTAL:", align="R")
     pdf.set_text_color(240, 238, 232)
-    pdf.cell(35, 9, f"${total:.2f}", align="C")
+    pdf.cell(35, 9, f"${fmt(total)}", align="C")
     pdf.ln()
 
     pdf.output(f"invoices/{inv['file']}")

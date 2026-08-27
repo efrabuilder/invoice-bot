@@ -1,0 +1,17 @@
+# Generated at runtime — never commit these
+invoices/*.pdf
+output/
+invoice_bot.log
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

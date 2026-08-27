@@ -4,10 +4,12 @@ Extracts invoice data from PDFs, validates it, detects duplicates,
 saves results to Excel/CSV and generates a summary report.
 """
 
-import os
-import re
+import argparse
 import logging
+import json
+import re
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pdfplumber
@@ -17,30 +19,83 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 from fpdf import FPDF
 
-# ── Logging ────────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("invoice_bot.log"),
-        logging.StreamHandler()
-    ]
-)
 log = logging.getLogger(__name__)
 
-INPUT_DIR  = Path("invoices")
-OUTPUT_DIR = Path("output")
-OUTPUT_DIR.mkdir(exist_ok=True)
-INPUT_DIR.mkdir(exist_ok=True)
+
+def setup_logging(log_file: Path, verbose: bool = False) -> None:
+    """Configure logging with a rotating file handler (max 1MB x 3 backups)."""
+    handlers = [
+        RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8"),
+        logging.StreamHandler(),
+    ]
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+        force=True,
+    )
+
+
+# ── Amount / date parsing helpers ───────────────────────────────────────────────
+def clean_amount(raw: str) -> float:
+    """
+    Parse an amount string into a float, supporting both:
+      - US/UK style: 1,234.56  (comma = thousands, dot = decimal)
+      - EU/LatAm style: 1.234,56  (dot = thousands, comma = decimal)
+    Raises ValueError if it can't be parsed as a number.
+    """
+    if raw is None:
+        raise ValueError("empty amount")
+    s = raw.strip().replace("$", "").replace("₡", "").strip()
+    if not s:
+        raise ValueError("empty amount")
+
+    has_comma = "," in s
+    has_dot = "." in s
+
+    if has_comma and has_dot:
+        # Whichever separator appears last is the decimal separator.
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif has_comma and not has_dot:
+        # Could be "1,234" (thousands) or "1234,56" (EU decimal).
+        # Treat as decimal only if exactly 2 digits follow the comma.
+        if re.match(r"^\d+,\d{2}$", s):
+            s = s.replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    # dot-only or no separators: already valid Python float format
+
+    return float(s)
+
+
+DATE_FORMATS = ["%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%m-%d-%Y",
+                 "%d.%m.%Y", "%d/%m/%y", "%m/%d/%y"]
+
+
+def parse_date(raw: str):
+    """Try to parse a date string against common formats. Returns a datetime or None."""
+    if not raw:
+        return None
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    return None
 
 
 # ── PDF Extraction ─────────────────────────────────────────────────────────────
-def extract_invoice_data(pdf_path: Path) -> dict:
-    """Extract key fields from an invoice PDF using regex patterns."""
-    text = ""
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            text += (page.extract_text() or "") + "\n"
+MIN_TEXT_LEN_FOR_SCAN_CHECK = 20  # below this, we assume the PDF has no real text layer
+
+
+def parse_invoice_text(text: str, filename: str = "") -> dict:
+    """
+    Pure text -> fields parser (no file I/O), so this can be unit-tested
+    directly with plain strings instead of real PDFs.
+    """
 
     def find(patterns, txt, require_digit=False):
         for pat in patterns:
@@ -54,20 +109,23 @@ def extract_invoice_data(pdf_path: Path) -> dict:
     # NOTE: "[:\-]" is required (not optional) here so the pattern doesn't match
     # a lone header word like "INVOICE" with nothing after it. require_digit=True
     # is a second safety net since real invoice numbers always contain a digit.
+    # The "N°" pattern is deliberately last and requires a digit immediately
+    # after the symbol, since on its own it's too generic (e.g. "Página N° 2").
     invoice_number = find([
         r"invoice\s*#\s*[:\-]?\s*([A-Z0-9\-]+)",
         r"invoice\s*[:\-]\s*([A-Z0-9\-]+)",
         r"factura\s*#?\s*[:\-]\s*([A-Z0-9\-]+)",
         r"inv\s*[:\-]\s*([A-Z0-9\-]+)",
-        r"n[°º]\s*[:\-]?\s*([A-Z0-9\-]+)",
+        r"n[°º]\s*[:\-]?\s*(\d[A-Z0-9\-]*)",
     ], text, require_digit=True)
 
-    date = find([
+    date_raw = find([
         r"date\s*[:\-]\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})",
         r"fecha\s*[:\-]\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})",
         r"issued\s*[:\-]\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})",
         r"(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})",
     ], text)
+    parsed_date = parse_date(date_raw)
 
     vendor = find([
         r"from\s*[:\-]\s*(.+)",
@@ -76,13 +134,17 @@ def extract_invoice_data(pdf_path: Path) -> dict:
         r"bill\s*from\s*[:\-]\s*(.+)",
         r"company\s*[:\-]\s*(.+)",
     ], text)
+    # Normalize: trim stray trailing commas/semicolons/whitespace picked up
+    # from the regex capturing to end-of-line. Trailing periods are kept on
+    # purpose since they're often part of the name itself (e.g. "S.A.").
+    vendor = re.sub(r"[\s,;:]+$", "", vendor.strip())
 
-    total = find([
-        r"total\s*[:\-]\s*\$?\s*([\d,]+\.?\d*)",
-        r"amount\s*due\s*[:\-]\s*\$?\s*([\d,]+\.?\d*)",
-        r"grand\s*total\s*[:\-]\s*\$?\s*([\d,]+\.?\d*)",
-        r"total\s*a\s*pagar\s*[:\-]\s*\$?\s*([\d,]+\.?\d*)",
-        r"\$\s*([\d,]+\.\d{2})",
+    total_raw = find([
+        r"total\s*[:\-]\s*\$?\s*([\d.,]+)",
+        r"amount\s*due\s*[:\-]\s*\$?\s*([\d.,]+)",
+        r"grand\s*total\s*[:\-]\s*\$?\s*([\d.,]+)",
+        r"total\s*a\s*pagar\s*[:\-]\s*\$?\s*([\d.,]+)",
+        r"\$\s*([\d.,]+)",
     ], text)
 
     currency = "USD"
@@ -90,30 +152,47 @@ def extract_invoice_data(pdf_path: Path) -> dict:
     elif re.search(r"₡|CRC|colones", text, re.IGNORECASE): currency = "CRC"
 
     return {
-        "file":           pdf_path.name,
-        "invoice_number": invoice_number,
-        "date":           date,
-        "vendor":         vendor[:60] if vendor else "",
-        "total":          total,
-        "currency":       currency,
-        "raw_text_len":   len(text),
+        "file":            filename,
+        "invoice_number":  invoice_number,
+        "date":            date_raw,
+        "date_valid":      parsed_date is not None if date_raw else None,
+        "vendor":          vendor[:60] if vendor else "",
+        "total":           total_raw,
+        "currency":        currency,
+        "raw_text_len":    len(text),
+        "scanned_no_text": len(text.strip()) < MIN_TEXT_LEN_FOR_SCAN_CHECK,
     }
+
+
+def extract_invoice_data(pdf_path: Path) -> dict:
+    """Extract key fields from an invoice PDF using regex patterns."""
+    text = ""
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text += (page.extract_text() or "") + "\n"
+    return parse_invoice_text(text, filename=pdf_path.name)
 
 
 # ── Validation ─────────────────────────────────────────────────────────────────
 REQUIRED_FIELDS = ["invoice_number", "date", "vendor", "total"]
 
-def validate(record: dict) -> tuple[bool, list]:
+def validate(record: dict) -> tuple:
     """Validate extracted invoice data. Returns (is_valid, list_of_errors)."""
     errors = []
+
+    if record.get("scanned_no_text"):
+        errors.append("Sin texto extraible (posible PDF escaneado / solo imagen)")
+
     for field in REQUIRED_FIELDS:
         if not record.get(field):
             errors.append(f"Missing: {field}")
 
+    if record.get("date") and record.get("date_valid") is False:
+        errors.append(f"Fecha invalida: {record['date']}")
+
     if record.get("total"):
-        clean = record["total"].replace(",", "").replace("$", "")
         try:
-            val = float(clean)
+            val = clean_amount(record["total"])
             if val <= 0:
                 errors.append("Total must be > 0")
         except ValueError:
@@ -124,7 +203,7 @@ def validate(record: dict) -> tuple[bool, list]:
 
 # ── Duplicate Detection ────────────────────────────────────────────────────────
 def detect_duplicates(records: list) -> list:
-    """Mark duplicate invoice numbers."""
+    """Mark duplicate invoice numbers within the current run."""
     seen = {}
     for rec in records:
         inv = rec.get("invoice_number", "").strip().upper()
@@ -141,6 +220,45 @@ def detect_duplicates(records: list) -> list:
     return records
 
 
+def apply_history(records: list, history_path: Path) -> list:
+    """
+    Cross-run duplicate detection: compares invoice numbers against a JSON
+    file of previously-seen numbers (persisted across executions), then
+    updates that file with the current run's valid invoice numbers.
+    """
+    history = {}
+    if history_path.exists():
+        try:
+            history = json.loads(history_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            log.warning(f"Could not read history file ({e}); starting fresh.")
+
+    # Bug fix: an invoice that was ALSO a duplicate within this same run
+    # (detect_duplicates already flagged it) must still be recorded here
+    # under its first-seen file, or it silently drops out of history and
+    # stops being detected as a duplicate in later runs. We only skip
+    # writing a NEW history entry for the second+ occurrence within this run.
+    seen_this_run = set()
+    for rec in records:
+        inv = rec.get("invoice_number", "").strip().upper()
+        if not inv:
+            continue
+        if inv in history and history[inv] != rec.get("file"):
+            if not rec.get("duplicate"):
+                log.warning(f"Duplicate invoice number: {inv} in {rec['file']} (already seen in {history[inv]})")
+            rec["duplicate"] = True
+        elif inv not in seen_this_run:
+            history[inv] = rec.get("file")
+        seen_this_run.add(inv)
+
+    try:
+        history_path.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError as e:
+        log.warning(f"Could not save history file: {e}")
+
+    return records
+
+
 # ── Excel Export ───────────────────────────────────────────────────────────────
 HEADER_FILL  = PatternFill("solid", fgColor="FF6B35")
 HEADER_FONT  = Font(bold=True, color="FFFFFF", size=11)
@@ -152,7 +270,7 @@ DUP_FILL     = PatternFill("solid", fgColor="3B2A00")
 COLUMNS = ["file", "invoice_number", "date", "vendor", "total", "currency",
            "valid", "duplicate", "errors"]
 
-def export_excel(records: list) -> Path:
+def export_excel(records: list, output_dir: Path) -> Path:
     wb = Workbook()
     ws = wb.active
     ws.title = "Invoices"
@@ -178,17 +296,17 @@ def export_excel(records: list) -> Path:
             cell.alignment = Alignment(horizontal="center")
             if row_fill: cell.fill = row_fill
 
-    path = OUTPUT_DIR / f"invoices_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    path = output_dir / f"invoices_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     wb.save(path)
     log.info(f"Excel saved: {path.name}")
     return path
 
 
 # ── CSV Export ─────────────────────────────────────────────────────────────────
-def export_csv(records: list) -> Path:
+def export_csv(records: list, output_dir: Path) -> Path:
     df = pd.DataFrame(records)[COLUMNS]
     df["errors"] = df["errors"].apply(lambda x: "; ".join(x) if isinstance(x, list) else x)
-    path = OUTPUT_DIR / f"invoices_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    path = output_dir / f"invoices_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     df.to_csv(path, index=False)
     log.info(f"CSV saved: {path.name}")
     return path
@@ -210,7 +328,7 @@ class ReportPDF(FPDF):
         self.cell(0, 10, f"Page {self.page_no()} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}", align="C")
 
 
-def export_pdf_report(records: list, stats: dict) -> Path:
+def export_pdf_report(records: list, stats: dict, output_dir: Path) -> Path:
     pdf = ReportPDF()
     pdf.set_auto_page_break(True, margin=15)
     pdf.add_page()
@@ -297,19 +415,38 @@ def export_pdf_report(records: list, stats: dict) -> Path:
             pdf.cell(w, 6, str(val), fill=True)
         pdf.ln()
 
-    path = OUTPUT_DIR / f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    path = output_dir / f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf.output(str(path))
     log.info(f"PDF report saved: {path.name}")
     return path
 
 
+# ── CLI ──────────────────────────────────────────────────────────────────────
+def parse_args():
+    parser = argparse.ArgumentParser(description="Extract, validate and report on invoice PDFs.")
+    parser.add_argument("--input", "-i", type=Path, default=Path("invoices"),
+                        help="Folder with invoice PDFs to process (default: invoices/)")
+    parser.add_argument("--output", "-o", type=Path, default=Path("output"),
+                        help="Folder to write reports to (default: output/)")
+    parser.add_argument("--no-history", action="store_true",
+                        help="Disable cross-run duplicate detection (only checks duplicates within this run)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Enable debug-level logging")
+    return parser.parse_args()
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 def main():
+    args = parse_args()
+    args.input.mkdir(exist_ok=True)
+    args.output.mkdir(exist_ok=True)
+    setup_logging(args.output / "invoice_bot.log", verbose=args.verbose)
+
     log.info("=== Invoice Bot started ===")
 
-    pdf_files = list(INPUT_DIR.glob("*.pdf"))
+    pdf_files = list(args.input.glob("*.pdf"))
     if not pdf_files:
-        log.warning(f"No PDF files found in '{INPUT_DIR}/'. Add invoice PDFs and run again.")
+        log.warning(f"No PDF files found in '{args.input}/'. Add invoice PDFs and run again.")
         return
 
     log.info(f"Found {len(pdf_files)} PDF(s) to process.")
@@ -333,14 +470,16 @@ def main():
             })
 
     records = detect_duplicates(records)
+    if not args.no_history:
+        records = apply_history(records, args.output / "seen_invoices.json")
 
     # Stats
-    total_amount = 0
+    total_amount = 0.0
     for rec in records:
         try:
-            val = float(rec.get("total", "0").replace(",", "").replace("$", ""))
-            total_amount += val
-        except: pass
+            total_amount += clean_amount(rec.get("total", ""))
+        except ValueError:
+            pass
 
     stats = {
         "total":        len(records),
@@ -352,9 +491,9 @@ def main():
 
     log.info(f"Results: {stats['valid']} valid | {stats['invalid']} invalid | {stats['duplicates']} duplicates")
 
-    export_excel(records)
-    export_csv(records)
-    export_pdf_report(records, stats)
+    export_excel(records, args.output)
+    export_csv(records, args.output)
+    export_pdf_report(records, stats, args.output)
 
     log.info("=== Invoice Bot completed. Check output/ folder. ===")
 
